@@ -52,6 +52,8 @@ BREADTH_COLS = [
     "five_day_ratio", "ten_day_ratio",
 ]
 SECTORAL_COLS = ["date", "sector", "close", "chg_pct"]
+AI_INSIGHT_COLS = ["date", "insight", "model", "generated_at"]
+KEEP_INSIGHTS = 8   # rolling window: only the most recent N days of AI insight
 
 
 def _load_env():
@@ -107,6 +109,11 @@ def _ensure_schema(client):
             PRIMARY KEY (date, sector)
         )
     """)
+    client.execute("""
+        CREATE TABLE IF NOT EXISTS ai_insight (
+            date TEXT PRIMARY KEY, insight TEXT, model TEXT, generated_at TEXT
+        )
+    """)
 
 
 def _fetch_local(where_recent: bool):
@@ -130,6 +137,28 @@ def _fetch_local(where_recent: bool):
         s = conn.execute(f"SELECT {','.join(SECTORAL_COLS)} FROM sectoral").fetchall()
     conn.close()
     return [list(r) for r in b], [list(r) for r in s]
+
+
+def _fetch_ai_insights():
+    """Most recent AI insights (rolling window). Empty if the table doesn't exist yet."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        rows = conn.execute(
+            f"SELECT {','.join(AI_INSIGHT_COLS)} FROM ai_insight "
+            f"ORDER BY date DESC LIMIT {KEEP_INSIGHTS}"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = []   # ai_insight table not created yet
+    conn.close()
+    return [list(r) for r in rows]
+
+
+def _trim_cloud_insights(client, keep=KEEP_INSIGHTS):
+    client.execute(
+        "DELETE FROM ai_insight WHERE date NOT IN "
+        "(SELECT date FROM ai_insight ORDER BY date DESC LIMIT ?)",
+        [keep],
+    )
 
 
 def _upsert_batch(client, table, cols, rows, chunk=200):
@@ -167,6 +196,12 @@ def main():
 
     _upsert_batch(client, "breadth", BREADTH_COLS, breadth_rows)
     _upsert_batch(client, "sectoral", SECTORAL_COLS, sectoral_rows)
+
+    # AI insights: push the most recent few, then trim the cloud to the last 8 days.
+    ai_rows = _fetch_ai_insights()
+    log.info(f"Pushing {len(ai_rows)} ai_insight rows...")
+    _upsert_batch(client, "ai_insight", AI_INSIGHT_COLS, ai_rows)
+    _trim_cloud_insights(client)
 
     client.close()
     log.info("✓ Cloud sync complete.")

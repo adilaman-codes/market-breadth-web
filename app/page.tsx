@@ -1,6 +1,6 @@
-import { getBreadth, getSectoral } from "@/lib/data";
+import { getBreadth, getSectoral, getAiInsights } from "@/lib/data";
 import Client from "@/components/Client";
-import { BreadthRow, SectoralRow } from "@/lib/types";
+import { BreadthRow, SectoralRow, AiInsight } from "@/lib/types";
 
 // Always render at request time so freshly-pushed data (and the first deploy)
 // show immediately. Turso's free tier easily handles per-visit reads.
@@ -9,10 +9,15 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   let breadth: BreadthRow[] = [];
   let sectoral: SectoralRow[] = [];
+  let aiInsights: AiInsight[] = [];
   let error: string | null = null;
 
   try {
-    [breadth, sectoral] = await Promise.all([getBreadth(), getSectoral()]);
+    [breadth, sectoral, aiInsights] = await Promise.all([
+      getBreadth(),
+      getSectoral(),
+      getAiInsights(),
+    ]);
   } catch (e: any) {
     error = e?.message || "Could not load data.";
   }
@@ -37,5 +42,5 @@ export default async function Page() {
     );
   }
 
-  return <Client breadth={breadth} sectoral={sectoral} />;
+  return <Client breadth={breadth} sectoral={sectoral} aiInsights={aiInsights} />;
 }

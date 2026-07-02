@@ -1,11 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BreadthRow, SectoralRow } from "@/lib/types";
+import { BreadthRow, SectoralRow, AiInsight } from "@/lib/types";
 import { scoreRegime, summarize } from "@/lib/regime";
 import Dashboard from "./Dashboard";
 import DataTable from "./DataTable";
 import SummaryCard from "./SummaryCard";
+import AiInsightPanel from "./AiInsightPanel";
+
+// How many recent trading days the analysis-day selector exposes (matches the
+// rolling window of AI insights stored in the database).
+const ANALYSIS_DAYS = 8;
 
 type Tab = "dashboard" | "table";
 
@@ -27,11 +32,28 @@ function isoDaysAgo(days: number): string {
 export default function Client({
   breadth,
   sectoral,
+  aiInsights = [],
 }: {
   breadth: BreadthRow[];
   sectoral: SectoralRow[];
+  aiInsights?: AiInsight[];
 }) {
   const [tab, setTab] = useState<Tab>("dashboard");
+
+  // The last N trading sessions, newest first — these drive the analysis-day picker.
+  const analysisDays = useMemo(
+    () => breadth.slice(-ANALYSIS_DAYS).reverse(),
+    [breadth]
+  );
+  const insightByDate = useMemo(() => {
+    const m = new Map<string, AiInsight>();
+    for (const a of aiInsights) m.set(a.date, a);
+    return m;
+  }, [aiInsights]);
+  // AI Expert Insight groundwork is fully wired but stays hidden until at least one
+  // insight exists in the DB (i.e. once the Anthropic API key is added). Then the
+  // panel and the per-day AI dots appear automatically — no code change needed.
+  const hasAiInsights = aiInsights.length > 0;
 
   const minDate = breadth[0]?.date ?? "2004-01-01";
   const maxDate = breadth[breadth.length - 1]?.date ?? isoDaysAgo(0);
@@ -60,9 +82,18 @@ export default function Client({
   );
 
   const latest = breadth[breadth.length - 1];
-  const prev = breadth[breadth.length - 2];
-  const regime = scoreRegime(latest);
-  const summaryText = summarize(latest, prev);
+
+  // The day whose analysis (summary + AI insight) is on screen. Defaults to latest.
+  const [analysisDate, setAnalysisDate] = useState<string>(latest.date);
+  const selectedIdx = useMemo(() => {
+    const i = breadth.findIndex((r) => r.date === analysisDate);
+    return i === -1 ? breadth.length - 1 : i;
+  }, [breadth, analysisDate]);
+  const selected = breadth[selectedIdx];
+  const selectedPrev = selectedIdx > 0 ? breadth[selectedIdx - 1] : undefined;
+  const regime = scoreRegime(selected);
+  const summaryText = summarize(selected, selectedPrev);
+  const selectedInsight = insightByDate.get(selected.date);
 
   return (
     <main className="min-h-screen">
@@ -92,8 +123,51 @@ export default function Client({
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Summary */}
-        <SummaryCard regime={regime} latest={latest} summaryText={summaryText} />
+        {/* Analysis-day selector — last 8 trading sessions */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400 pr-1">
+            Analysis day
+          </span>
+          {analysisDays.map((r) => {
+            const active = r.date === selected.date;
+            const hasAi = insightByDate.has(r.date);
+            const isLatest = r.date === latest.date;
+            return (
+              <button
+                key={r.date}
+                onClick={() => setAnalysisDate(r.date)}
+                title={hasAi ? "AI insight available" : "No AI insight for this day"}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md border transition flex items-center gap-1.5 ${
+                  active
+                    ? "bg-navy text-white border-navy"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-navy/40"
+                }`}
+              >
+                {new Date(r.date).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                })}
+                {isLatest && (
+                  <span
+                    className={`text-[10px] ${active ? "text-white/70" : "text-slate-400"}`}
+                  >
+                    latest
+                  </span>
+                )}
+                {hasAiInsights && (
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      hasAi ? "bg-indigo-400" : "bg-slate-300"
+                    }`}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Summary (for the selected analysis day) */}
+        <SummaryCard regime={regime} latest={selected} summaryText={summaryText} />
 
         {/* Controls */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-center gap-4">
@@ -170,6 +244,12 @@ export default function Client({
           <Dashboard rows={filtered} sectoral={sectoral} />
         ) : (
           <DataTable rows={filtered} />
+        )}
+
+        {/* AI Expert Insight — bottom of page, follows the selected analysis day.
+            Hidden until at least one insight exists (i.e. once the API key is added). */}
+        {hasAiInsights && (
+          <AiInsightPanel insight={selectedInsight} date={selected.date} />
         )}
 
         <footer className="pt-4 pb-8 text-center text-xs text-slate-400">

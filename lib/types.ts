@@ -43,3 +43,10 @@ export interface SectoralRow {
   close: number | null;
   chg_pct: number | null;
 }
+
+export interface AiInsight {
+  date: string;
+  insight: string | null;
+  model: string | null;
+  generated_at: string | null;
+}
