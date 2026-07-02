@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS launchd job — runs the Market Breadth daily collector at 4:00 PM IST
+  (10:30 AM UTC = 4:00 PM IST).
+
+  INSTALL:
+    1. Copy this file to ~/Library/LaunchAgents/com.breadth.daily.plist
+    2. Edit the two paths below (ProgramArguments and StandardOutPath etc.)
+    3. Load it:  launchctl load ~/Library/LaunchAgents/com.breadth.daily.plist
+    4. Verify:   launchctl list | grep breadth
+
+  TO UNLOAD / DISABLE:
+    launchctl unload ~/Library/LaunchAgents/com.breadth.daily.plist
+
+  NOTE: Your Mac must be awake at 10:30 AM UTC (4:00 PM IST) for the job to fire.
+  If it was asleep, it will run next time it wakes and the next scheduled window arrives.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.breadth.daily</string>
+
+    <!-- ── EDIT THIS PATH to where you saved run_daily.sh ── -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/idontapprove/MarketBreadth/run_daily.sh</string>
+    </array>
+
+    <!-- Run Mon–Fri at 10:30 AM UTC (= 4:00 PM IST) -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Weekday</key><integer>1</integer>
+            <key>Hour</key><integer>10</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>2</integer>
+            <key>Hour</key><integer>10</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>3</integer>
+            <key>Hour</key><integer>10</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>4</integer>
+            <key>Hour</key><integer>10</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>5</integer>
+            <key>Hour</key><integer>10</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+    </array>
+
+    <!-- ── EDIT THESE PATHS too ── -->
+    <key>StandardOutPath</key>
+    <string>/Users/idontapprove/MarketBreadth/launchd_out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/idontapprove/MarketBreadth/launchd_err.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
