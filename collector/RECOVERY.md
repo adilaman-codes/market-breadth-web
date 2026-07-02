@@ -18,7 +18,16 @@ refuses connections from cloud/datacenter servers — it only accepts ordinary h
 computers. So the collector must run on a home computer, but it can be *any* home
 computer, not one specific Mac.
 
-## Restore on a new / different computer
+## Restore on a new / different computer — the easy way
+
+1. Download this `collector` folder from GitHub onto the new Mac.
+2. Double-click **`setup_new_mac.command`**. It installs the libraries, copies the
+   scripts, asks for your Turso URL + token, installs the daily scheduler, and offers to
+   rebuild history. That's the whole migration.
+
+If you'd rather do it by hand, follow the manual steps below.
+
+## Restore manually
 
 1. Install Python 3, then the libraries:
    ```bash
